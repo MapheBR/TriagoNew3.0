@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Triagem Virtual</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        :root {
+            --background: #181A1B;
+            --surface: #23272A;
+            --primary: #0052CC;
+            --text: #F5F6FA;
+            --text-secondary: #B0B0B0;
+            --danger: #FF4D4F;
+            --warning: #faad14;
+        }
+
+        body {
+            background: var(--background);
+            color: var(--text);
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            min-height: 100dvh;
+            padding: env(safe-area-inset-top, 1rem) env(safe-area-inset-right, 1rem) env(safe-area-inset-bottom, 1rem) env(safe-area-inset-left, 1rem);
+            overflow: hidden;
+        }
+
+        .chat {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--surface);
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            height: calc(100dvh - env(safe-area-inset-top, 2rem) - env(safe-area-inset-bottom, 2rem));
+        }
+
+        .progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: rgba(0,82,204,0.1);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0;
+            transition: width 0.3s ease;
+        }
+
+        .header {
+            background: #232f3e;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .user {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+        }
+
+        .user i {
+            font-size: 1.2em;
+            color: var(--primary);
+        }
+
+        .header h1 {
+            flex: 1;
+            text-align: center;
+            font-size: 1.2em;
+            margin: 0;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover {
+            background: rgba(0,82,204,0.1);
+            color: var(--primary);
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background: var(--background);
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .msg-bot, .msg-user {
+            max-width: 85%;
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            margin-bottom: 0.8rem;
+        }
+
+        .msg-bot {
+            background: var(--surface);
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg-user {
+            background: var(--primary);
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .alert {
+            background: rgba(255,165,0,0.1);
+            border-left: 4px solid #FFA500;
+            border-radius: 8px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 1rem;
+            font-size: 0.95em;
+            position: relative;
+        }
+
+        .alert strong {
+            display: block;
+            color: #FFA500;
+            font-size: 1.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .alert p {
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .input-area {
+            background: var(--surface);
+            padding: 1rem;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 0.7rem 1rem;
+            border: 1px solid var(--primary);
+            background: transparent;
+            color: var(--primary);
+            border-radius: 20px;
+            font-weight: 500;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 0.5rem;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background: var(--primary);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-group {
+            display: none;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        @media (min-width: 480px) {
+            .btn-group {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .btn {
+                min-width: calc(50% - 0.5rem);
+                margin-bottom: 0;
+            }
+        }
+
+        .input-group {
+            display: flex;
+            gap: 0.8rem;
+        }
+
+        .input {
+            flex: 1;
+            padding: 0.7rem 1rem;
+            border-radius: 20px;
+            border: 1px solid #333;
+            background: var(--background);
+            color: var(--text);
+            font-size: 0.95em;
+            transition: border-color 0.2s;
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .typing {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 0.5rem 0.8rem;
+            background: var(--surface);
+            border-radius: 12px;
+            width: fit-content;
+            margin-bottom: 0.8rem;
+        }
+
+        .typing span {
+            width: 6px;
+            height: 6px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+
+        .typing span:nth-child(2) { animation-delay: 0.2s; }
+        .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-4px); }
+        }
+
+        @media (max-width: 480px) {
+            body { 
+                padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+            }
+            .chat {
+                height: 100dvh;
+                border-radius: 0;
+                margin: 0;
+            }
+            .messages {
+                height: calc(100dvh - var(--header-height, 60px) - var(--input-area-height, 70px));
+            }
+            .btn-group { 
+                flex-direction: column;
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
+            .input-area {
+                padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0));
+            }
+        }
+
+        .btn-confirm {
+            background: var(--primary);
+            color: white !important;
+            border-color: var(--primary);
+        }
+
+        .btn-cancel {
+            background: transparent;
+            color: var(--text-secondary) !important;
+            border-color: #666;
+        }
+
+        .btn i {
+            margin-right: 8px;
+        }
+
+        #buttonGroup {
+            display: none;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 480px) {
+            #buttonGroup {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat">
+        <div class="progress">
+            <div class="progress-fill" id="progressBar"></div>
+        </div>
+        <div class="header">
+            <div class="user">
+                <i class="fas fa-user-circle"></i>
+                <span id="userName">Carregando...</span>
+            </div>
+            <h1>Triagem Virtual</h1>
+            <button onclick="handleLogout()" class="btn-icon" title="Sair">
+                <i class="fas fa-sign-out-alt"></i>
+            </button>
+        </div>
+
+        <div id="chatMessages" class="messages">
+            <!-- Mensagens serão adicionadas aqui -->
+        </div>
+
+        <div class="input-area">
+            <div id="buttonGroup" class="btn-group">
+                <!-- Botões serão adicionados aqui -->
+            </div>
+            <div id="textInput" class="input-group" style="display: none;">
+                <input type="text" class="input" id="userResponse" 
+                       placeholder="Digite sua resposta..."
+                       onkeypress="if(event.key === 'Enter') document.getElementById('sendResponse').click()">
+                <button id="sendResponse" class="btn-icon" title="Enviar" onclick="handleUserInput()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let currentStep = 'name';
+        let userAnswers = {};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            showInitialAlert(); // Mostrar alerta imediatamente
+        });
+
+        function setupProgressBar() {
+            const progressBar = document.getElementById('progressBar');
+            let progress = 0;
+            
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.addedNodes.length > 0) {
+                        progress += 10;
+                        if (progress > 100) progress = 100;
+                        progressBar.style.width = `${progress}%`;
+                    }
+                });
+            });
+
+            observer.observe(document.getElementById('chatMessages'), {
+                childList: true
+            });
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'typing';
+            indicator.innerHTML = `
+                <span></span>
+                <span></span>
+                <span></span>
+            `;
+            document.getElementById('chatMessages').appendChild(indicator);
+            indicator.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideTypingIndicator() {
+            const indicator = document.querySelector('.typing');
+            if (indicator) indicator.remove();
+        }
+
+        function handleLogout() {
+            window.location.replace('inicio.html');
+        }
+
+        function showInitialAlert() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            const textInput = document.getElementById('textInput');
+            
+            // Limpar mensagens anteriores
+            messages.innerHTML = '';
+            
+            // Esconder campo de texto
+            textInput.style.display = 'none';
+            
+            // Adicionar mensagem de alerta
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'message msg-bot alert';
+            alertDiv.innerHTML = `
+                <strong>ATENÇÃO!</strong>
+                <p>Este sistema é apenas para triagem inicial e não substitui a avaliação médica presencial. Você está ciente e deseja continuar?</p>
+            `;
+            messages.appendChild(alertDiv);
+            
+            // Mostrar botões de confirmação
+            buttonGroup.innerHTML = `
+                <button class="btn btn-confirm" onclick="handleAlertConfirm()">
+                    <i class="fas fa-check"></i> Sim, continuar
+                </button>
+                <button class="btn btn-cancel" onclick="handleAlertCancel()">
+                    <i class="fas fa-times"></i> Cancelar
+                </button>
+            `;
+            buttonGroup.style.display = 'flex';
+        }
+
+        function handleAlertConfirm() {
+            const buttonGroup = document.getElementById('buttonGroup');
+            buttonGroup.style.display = 'none';
+            startTriagem();
+        }
+
+        function handleAlertCancel() {
+            window.location.href = 'inicio.html';
+        }
+
+        function handleUserInput() {
+            const input = document.getElementById('userResponse');
+            const response = input.value.trim();
+            
+            if (!response) {
+                return;
+            }
+
+            // Adiciona a resposta do usuário ao chat
+            handleUserResponse(response);
+            
+            // Limpa o campo de input
+            input.value = '';
+
+            // Processa a resposta baseado no passo atual
+            switch (currentStep) {
+                case 'name':
+                    userAnswers.name = response;
+                    currentStep = 'age';
+                    askAge();
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        function startTriagem() {
+            const buttonGroup = document.getElementById('buttonGroup');
+            const textInput = document.getElementById('textInput');
+            const messages = document.getElementById('chatMessages');
+
+            // Primeira pergunta sobre nome
+            const message = document.createElement('div');
+            message.className = 'message msg-bot';
+            message.textContent = "Por favor, informe seu nome completo:";
+            messages.appendChild(message);
+            
+            // Mostra o campo de texto e esconde os botões
+            buttonGroup.style.display = 'none';
+            textInput.style.display = 'flex';
+            
+            // Foca no campo de input
+            const input = document.getElementById('userResponse');
+            input.focus();
+        }
+
+        function handleUserResponse(response) {
+            const messages = document.getElementById('chatMessages');
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message msg-user';
+            userMsg.textContent = response;
+            messages.appendChild(userMsg);
+        }
+
+        function askAge() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            const textInput = document.getElementById('textInput');
+            
+            textInput.style.display = 'none';
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const ageQuestion = document.createElement('div');
+                    ageQuestion.className = 'message msg-bot';
+                    ageQuestion.textContent = "Qual a sua idade?";
+                    messages.appendChild(ageQuestion);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleAge('Menos de 12')">Menos de 12</button>
+                        <button class="btn" onclick="handleAge('12-17')">12-17</button>
+                        <button class="btn" onclick="handleAge('18-30')">18-30</button>
+                        <button class="btn" onclick="handleAge('31-50')">31-50</button>
+                        <button class="btn" onclick="handleAge('51-70')">51-70</button>
+                        <button class="btn" onclick="handleAge('Mais de 70')">Mais de 70</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleAge(age) {
+            handleUserResponse(age);
+            askMainSymptom();
+        }
+
+        function askMainSymptom() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const symptomsQuestion = document.createElement('div');
+                    symptomsQuestion.className = 'message msg-bot';
+                    symptomsQuestion.textContent = "Qual é o principal sintoma que você está sentindo?";
+                    messages.appendChild(symptomsQuestion);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleMainSymptom('Dor')">Dor</button>
+                        <button class="btn" onclick="handleMainSymptom('Febre')">Febre</button>
+                        <button class="btn" onclick="handleMainSymptom('Dificuldade Respiratória')">Dificuldade Respiratória</button>
+                        <button class="btn" onclick="handleMainSymptom('Tontura/Desmaio')">Tontura/Desmaio</button>
+                        <button class="btn" onclick="handleMainSymptom('Sangramento')">Sangramento</button>
+                        <button class="btn" onclick="handleMainSymptom('Trauma/Acidente')">Trauma/Acidente</button>
+                        <button class="btn" onclick="handleMainSymptom('Alergia')">Alergia</button>
+                        <button class="btn" onclick="handleMainSymptom('Outro')">Outro</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleMainSymptom(symptom) {
+            handleUserResponse(symptom);
+            
+            switch(symptom) {
+                case 'Dor':
+                    askPainLocation();
+                    break;
+                case 'Febre':
+                    askFeverDetails();
+                    break;
+                case 'Dificuldade Respiratória':
+                    askBreathingDetails();
+                    break;
+                case 'Tontura/Desmaio':
+                    askDizzinessDetails();
+                    break;
+                case 'Sangramento':
+                    askBleedingDetails();
+                    break;
+                case 'Trauma/Acidente':
+                    askComorbidities();
+                    break;
+                case 'Alergia':
+                    askAllergies();
+                    break;
+                default:
+                    askAssociatedSymptoms();
+            }
+        }
+
+        function askPainLocation() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Onde está localizada a dor?";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handlePainLocation('Cabeça')">Cabeça</button>
+                        <button class="btn" onclick="handlePainLocation('Peito')">Peito</button>
+                        <button class="btn" onclick="handlePainLocation('Abdomen')">Abdomen</button>
+                        <button class="btn" onclick="handlePainLocation('Costas')">Costas</button>
+                        <button class="btn" onclick="handlePainLocation('Membros')">Membros</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handlePainLocation(location) {
+            handleUserResponse(location);
+            askPainIntensity();
+        }
+
+        function askPainIntensity() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Qual a intensidade da dor? (0 = sem dor, 10 = pior dor possível)";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handlePainIntensity('1-3')">1-3 (Leve)</button>
+                        <button class="btn" onclick="handlePainIntensity('4-6')">4-6 (Moderada)</button>
+                        <button class="btn" onclick="handlePainIntensity('7-8')">7-8 (Intensa)</button>
+                        <button class="btn" onclick="handlePainIntensity('9-10')">9-10 (Insuportável)</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handlePainIntensity(intensity) {
+            handleUserResponse(intensity);
+            askDuration();
+        }
+
+        function askFeverDetails() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Qual a temperatura aproximada?";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleFeverIntensity('Até 37.5°C')">Até 37.5°C</button>
+                        <button class="btn" onclick="handleFeverIntensity('37.6°C - 38.5°C')">37.6°C - 38.5°C</button>
+                        <button class="btn" onclick="handleFeverIntensity('38.6°C - 39.5°C')">38.6°C - 39.5°C</button>
+                        <button class="btn" onclick="handleFeverIntensity('Acima de 39.5°C')">Acima de 39.5°C</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleFeverIntensity(temp) {
+            handleUserResponse(temp);
+            askDuration();
+        }
+
+        function askDuration() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Há quanto tempo está com estes sintomas?";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleDuration('Menos de 1 hora')">Menos de 1 hora</button>
+                        <button class="btn" onclick="handleDuration('1-6 horas')">1-6 horas</button>
+                        <button class="btn" onclick="handleDuration('6-24 horas')">6-24 horas</button>
+                        <button class="btn" onclick="handleDuration('Mais de 24 horas')">Mais de 24 horas</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleDuration(duration) {
+            handleUserResponse(duration);
+            askAssociatedSymptoms();
+        }
+
+        function askAssociatedSymptoms() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Apresenta algum destes sintomas associados?";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleAssociatedSymptoms('Vômito')">Vômito</button>
+                        <button class="btn" onclick="handleAssociatedSymptoms('Falta de ar')">Falta de ar</button>
+                        <button class="btn" onclick="handleAssociatedSymptoms('Alteração consciência')">Alteração consciência</button>
+                        <button class="btn" onclick="handleAssociatedSymptoms('Nenhum')">Nenhum</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleAssociatedSymptoms(symptoms) {
+            handleUserResponse(symptoms);
+            showFinalResult();
+        }
+
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const triageData = JSON.parse(localStorage.getItem('ultimaTriagem'));
+            
+            // Configurar fonte e tamanho
+            doc.setFont('helvetica');
+            
+            // Título
+            doc.setFontSize(20);
+            doc.text('Relatório de Triagem Virtual', 105, 20, { align: 'center' });
+            
+            // Data e Hora
+            doc.setFontSize(12);
+            const dataTriagem = new Date(triageData.dataTriagem);
+            doc.text(`Data: ${dataTriagem.toLocaleDateString()} - Hora: ${dataTriagem.toLocaleTimeString()}`, 20, 35);
+            
+            // Informações do Paciente
+            doc.setFontSize(16);
+            doc.text('Dados do Paciente', 20, 50);
+            doc.setFontSize(12);
+            doc.text(`Nome: ${triageData.nome}`, 20, 60);
+            doc.text(`Idade: ${triageData.idade}`, 20, 70);
+            
+            // Sintomas
+            doc.setFontSize(16);
+            doc.text('Sintomas Relatados', 20, 90);
+            doc.setFontSize(12);
+            triageData.sintomas.forEach((sintoma, index) => {
+                doc.text(`• ${sintoma}`, 25, 100 + (index * 10));
+            });
+            
+            // Classificação
+            doc.setFontSize(16);
+            doc.text('Classificação de Risco', 20, 160);
+            doc.setFontSize(12);
+            doc.text(`Nível: ${triageData.resultado.texto}`, 20, 170);
+            doc.text(`Tempo Estimado de Espera: ${triageData.resultado.tempo}`, 20, 180);
+            
+            // Adicionar QR Code ou código de barras aqui se necessário
+            
+            // Rodapé
+            doc.setFontSize(10);
+            doc.text('Este é um documento de triagem inicial e não substitui a avaliação médica presencial.', 105, 280, { align: 'center' });
+            
+            // Salvar o PDF
+            doc.save(`triagem_${triageData.nome.replace(/\s+/g, '_')}.pdf`);
+        }
+
+        function showFinalResult() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            // Coletar todas as respostas do usuário
+            const userResponses = Array.from(messages.querySelectorAll('.msg-user')).map(msg => msg.textContent);
+            
+            // Calcular prioridade
+            const priority = calculatePriority(userResponses);
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const finalMessage = document.createElement('div');
+                    finalMessage.className = 'message msg-bot';
+                    finalMessage.innerHTML = `
+                        Baseado nas suas respostas, você será classificado como:
+                        <div class="priority priority-${priority.level}">
+                            <i class="fas ${priority.icon}"></i>
+                            <span>${priority.text}</span>
+                        </div>
+                        <br>
+                        Por favor, aguarde ser chamado. Tempo estimado de espera: ${priority.time}
+                    `;
+                    messages.appendChild(finalMessage);
+                    
+                    // Salvar resultado
+                    saveTriageResult(userResponses, priority);
+                    
+                    // Adicionar botões para ver resultado e baixar PDF
+                    const buttonsDiv = document.createElement('div');
+                    buttonsDiv.style.display = 'flex';
+                    buttonsDiv.style.flexDirection = 'column';
+                    buttonsDiv.style.gap = '10px';
+                    buttonsDiv.style.marginTop = '1rem';
+                    
+                    const viewResultBtn = document.createElement('a');
+                    viewResultBtn.href = 'resultado.html';
+                    viewResultBtn.className = 'btn btn-confirm';
+                    viewResultBtn.style.textAlign = 'center';
+                    viewResultBtn.innerHTML = '<i class="fas fa-clipboard-list"></i> Ver Resultado Completo';
+                    
+                    const downloadPDFBtn = document.createElement('button');
+                    downloadPDFBtn.className = 'btn btn-confirm';
+                    downloadPDFBtn.style.textAlign = 'center';
+                    downloadPDFBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Baixar PDF';
+                    downloadPDFBtn.onclick = generatePDF;
+                    
+                    buttonsDiv.appendChild(viewResultBtn);
+                    buttonsDiv.appendChild(downloadPDFBtn);
+                    messages.appendChild(buttonsDiv);
+                }, 1000);
+            }, 500);
+        }
+
+        function saveTriageResult(responses, priority) {
+            const triageResult = {
+                nome: responses[0],
+                idade: responses[1],
+                dataTriagem: new Date().toISOString(),
+                sintomas: responses.slice(2),
+                resultado: {
+                    nivel: priority.level,
+                    texto: priority.text,
+                    tempo: priority.time
+                }
+            };
+            localStorage.setItem('ultimaTriagem', JSON.stringify(triageResult));
+        }
+
+        function askBreathingDetails() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Como está sua dificuldade para respirar?";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleBreathingDetails('Leve')">Leve - consigo falar normalmente</button>
+                        <button class="btn" onclick="handleBreathingDetails('Moderada')">Moderada - falo com dificuldade</button>
+                        <button class="btn" onclick="handleBreathingDetails('Grave')">Grave - não consigo falar</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleBreathingDetails(severity) {
+            handleUserResponse(severity);
+            askDuration();
+        }
+
+        function askDizzinessDetails() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Como está sua tontura?";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleDizzinessDetails('Leve')">Leve - consigo ficar em pé</button>
+                        <button class="btn" onclick="handleDizzinessDetails('Moderada')">Moderada - preciso sentar</button>
+                        <button class="btn" onclick="handleDizzinessDetails('Grave')">Grave - já desmaiei</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleDizzinessDetails(severity) {
+            handleUserResponse(severity);
+            askDuration();
+        }
+
+        function askBleedingDetails() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Como está o sangramento?";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleBleedingDetails('Leve')">Leve - pequena quantidade</button>
+                        <button class="btn" onclick="handleBleedingDetails('Moderado')">Moderado - sangramento contínuo</button>
+                        <button class="btn" onclick="handleBleedingDetails('Grave')">Grave - sangramento intenso</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleBleedingDetails(severity) {
+            handleUserResponse(severity);
+            askDuration();
+        }
+
+        function askComorbidities() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Você tem alguma dessas condições?";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleComorbidities('Hipertensão')">Hipertensão</button>
+                        <button class="btn" onclick="handleComorbidities('Diabetes')">Diabetes</button>
+                        <button class="btn" onclick="handleComorbidities('Cardíaco')">Problemas Cardíacos</button>
+                        <button class="btn" onclick="handleComorbidities('Asma')">Asma/Bronquite</button>
+                        <button class="btn" onclick="handleComorbidities('Nenhuma')">Nenhuma</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleComorbidities(condition) {
+            handleUserResponse(condition);
+            askMedications();
+        }
+
+        function askMedications() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Está tomando algum medicamento?";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleMedications('Sim')">Sim</button>
+                        <button class="btn" onclick="handleMedications('Não')">Não</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleMedications(response) {
+            handleUserResponse(response);
+            if (response === 'Sim') {
+                askMedicationDetails();
+            } else {
+                askAllergies();
+            }
+        }
+
+        function askMedicationDetails() {
+            const messages = document.getElementById('chatMessages');
+            const textInput = document.getElementById('textInput');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Quais medicamentos você está tomando?";
+                    messages.appendChild(question);
+                    
+                    textInput.style.display = 'flex';
+                    const input = document.getElementById('userResponse');
+                    input.focus();
+                    
+                    document.getElementById('sendResponse').onclick = function() {
+                        const meds = input.value.trim();
+                        if (meds) {
+                            handleUserResponse(meds);
+                            textInput.style.display = 'none';
+                            input.value = '';
+                            askAllergies();
+                        }
+                    };
+                }, 1000);
+            }, 500);
+        }
+
+        function askAllergies() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Tem alguma alergia conhecida?";
+                    messages.appendChild(question);
+                    
+                    buttonGroup.innerHTML = `
+                        <button class="btn" onclick="handleAllergies('Medicamentos')">Medicamentos</button>
+                        <button class="btn" onclick="handleAllergies('Alimentos')">Alimentos</button>
+                        <button class="btn" onclick="handleAllergies('Outras')">Outras</button>
+                        <button class="btn" onclick="handleAllergies('Não')">Não</button>
+                    `;
+                    buttonGroup.style.display = 'flex';
+                }, 1000);
+            }, 500);
+        }
+
+        function handleAllergies(response) {
+            handleUserResponse(response);
+            if (response !== 'Não') {
+                askAllergyDetails();
+            } else {
+                askPregnancy();
+            }
+        }
+
+        function askAllergyDetails() {
+            const messages = document.getElementById('chatMessages');
+            const textInput = document.getElementById('textInput');
+            
+            setTimeout(() => {
+                showTypingIndicator();
+                setTimeout(() => {
+                    hideTypingIndicator();
+                    const question = document.createElement('div');
+                    question.className = 'message msg-bot';
+                    question.textContent = "Quais são suas alergias?";
+                    messages.appendChild(question);
+                    
+                    textInput.style.display = 'flex';
+                    const input = document.getElementById('userResponse');
+                    input.focus();
+                    
+                    document.getElementById('sendResponse').onclick = function() {
+                        const allergies = input.value.trim();
+                        if (allergies) {
+                            handleUserResponse(allergies);
+                            textInput.style.display = 'none';
+                            input.value = '';
+                            askPregnancy();
+                        }
+                    };
+                }, 1000);
+            }, 500);
+        }
+
+        function askPregnancy() {
+            const messages = document.getElementById('chatMessages');
+            const buttonGroup = document.getElementById('buttonGroup');
+            
+            // Só pergunta sobre gravidez se for mulher entre 12-50 anos
+            const responses = Array.from(messages.querySelectorAll('.msg-user')).map(msg => msg.textContent);
+            const age = responses[1];
+            if (age.includes('12-17') || age.includes('18-30') || age.includes('31-50')) {
+                setTimeout(() => {
+                    showTypingIndicator();
+                    setTimeout(() => {
+                        hideTypingIndicator();
+                        const question = document.createElement('div');
+                        question.className = 'message msg-bot';
+                        question.textContent = "Existe possibilidade de gravidez?";
+                        messages.appendChild(question);
+                        
+                        buttonGroup.innerHTML = `
+                            <button class="btn" onclick="handlePregnancy('Sim')">Sim</button>
+                            <button class="btn" onclick="handlePregnancy('Não')">Não</button>
+                        `;
+                        buttonGroup.style.display = 'flex';
+                    }, 1000);
+                }, 500);
+            } else {
+                askAssociatedSymptoms();
+            }
+        }
+
+        function handlePregnancy(response) {
+            handleUserResponse(response);
+            askAssociatedSymptoms();
+        }
+
+        function calculatePriority(symptoms) {
+            // Vermelho (Emergência)
+            if (symptoms.includes('Grave') || 
+                (symptoms.includes('Dor') && symptoms.includes('Peito')) ||
+                symptoms.includes('Alteração consciência') ||
+                symptoms.includes('Trauma/Acidente') ||
+                parseFloat(symptoms.find(s => s.includes('°C'))?.split('°')[0]) > 39.5) {
+                return {
+                    level: 'vermelho',
+                    text: 'Emergência',
+                    time: 'Imediato',
+                    icon: 'fa-exclamation-triangle'
+                };
+            }
+            
+            // Laranja (Muito Urgente)
+            if (symptoms.includes('Moderada') ||
+                symptoms.includes('9-10') ||
+                (symptoms.includes('Sim') && symptoms.includes('gravidez')) ||
+                symptoms.includes('Vômito') && symptoms.includes('Mais de 24 horas')) {
+                return {
+                    level: 'laranja',
+                    text: 'Muito Urgente',
+                    time: '10 minutos',
+                    icon: 'fa-exclamation-circle'
+                };
+            }
+            
+            // Amarelo (Urgente)
+            if (symptoms.includes('7-8') ||
+                symptoms.includes('38.6°C - 39.5°C') ||
+                (symptoms.includes('Hipertensão') && symptoms.includes('Cardíaco'))) {
+                return {
+                    level: 'amarelo',
+                    text: 'Urgente',
+                    time: '60 minutos',
+                    icon: 'fa-exclamation'
+                };
+            }
+            
+            // Verde (Pouco Urgente)
+            return {
+                level: 'verde',
+                text: 'Pouco Urgente',
+                time: '120 minutos',
+                icon: 'fa-check-circle'
+            };
+        }
+    </script>
+</body>
+</html>
